@@ -3601,7 +3601,7 @@ public class NPCCommands {
             throws CommandException {
         String message = args.getJoinedStrings(1);
 
-        SpeechContext context = new SpeechContext(message);
+        SpeechContext context = new SpeechContext(npc, message);
 
         Player playerRecipient = null;
         if (target != null) {
