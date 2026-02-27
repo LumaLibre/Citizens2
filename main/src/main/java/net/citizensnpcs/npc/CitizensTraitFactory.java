@@ -172,6 +172,9 @@ public class CitizensTraitFactory implements TraitFactory, Listener {
 
     @Override
     public int getId(Class<? extends Trait> clazz) {
+        if (clazz == null) {
+            return -1;
+        }
         return idOf.get(clazz);
     }
 

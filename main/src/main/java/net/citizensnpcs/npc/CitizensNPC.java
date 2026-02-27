@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import net.citizensnpcs.api.trait.Trait;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Registry;
@@ -74,6 +75,15 @@ public class CitizensNPC extends AbstractNPC {
             CitizensPlugin plugin) {
         super(uuid, id, name, registry, plugin);
         setEntityController(controller);
+    }
+
+    @Override
+    public boolean hasTrait(Class<? extends Trait> clazz) {
+        int value = plugin.getTraitFactory().getId(clazz);
+        if (value == -1) {
+            return false;
+        }
+        return traits.has(plugin.getTraitFactory().getId(clazz));
     }
 
     @Override
