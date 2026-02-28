@@ -8,7 +8,11 @@ import org.jetbrains.annotations.Nullable;
 public class BukkitScoreboardImpl implements AbstractScoreboard {
 
 
-    Scoreboard scoreboard = Util.getDummyScoreboard();
+    private final Scoreboard scoreboard;
+
+    public BukkitScoreboardImpl() {
+        this.scoreboard = Util.getDummyScoreboard();
+    }
 
     @Nullable
     @Override

@@ -86,7 +86,7 @@ public class FoliaTeamImpl implements AbstractTeam {
 
     @Override
     public void sendToPlayer(Player player, SendMode mode) {
-        // no-op
+        // TODO: Currently not implemented
         /*if (mode == SendMode.ADD_OR_MODIFY) {
             delegateDisplay.refresh();
             delegateTeam.display(player, delegateDisplay);
