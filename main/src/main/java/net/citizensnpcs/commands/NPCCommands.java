@@ -3631,7 +3631,7 @@ public class NPCCommands {
                 }
             });
         }
-        NPCSpeechEvent event = new NPCSpeechEvent(context);
+        NPCSpeechEvent event = new NPCSpeechEvent(npc, context);
         Bukkit.getServer().getPluginManager().callEvent(event);
     }
 

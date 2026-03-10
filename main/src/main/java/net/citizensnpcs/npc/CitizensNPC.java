@@ -326,7 +326,10 @@ public class CitizensNPC extends AbstractNPC {
         at = at.clone();
 
         if (reason == SpawnReason.CHUNK_LOAD || reason == SpawnReason.COMMAND) {
-            at.getChunk().load();
+            Location finalAt = at;
+            CitizensAPI.getScheduler().runRegionTask(at, () -> {
+                finalAt.getChunk().load();
+            });
         }
         getOrAddTrait(CurrentLocation.class).setLocation(at);
         entityController.create(at.clone(), this);

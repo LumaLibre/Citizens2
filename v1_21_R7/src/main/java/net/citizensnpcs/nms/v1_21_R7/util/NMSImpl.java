@@ -20,6 +20,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import net.citizensnpcs.Citizens;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -1419,7 +1420,9 @@ public class NMSImpl implements NMSBridge {
     public void removeFromWorld(org.bukkit.entity.Entity entity) {
         Preconditions.checkNotNull(entity);
         Entity handle = getHandle(entity);
-        ((ServerLevel) handle.level()).getChunkSource().removeEntity(handle);
+        CitizensAPI.getScheduler().runEntityTask(entity, () -> {
+            ((ServerLevel) handle.level()).getChunkSource().removeEntity(handle);
+        });
     }
 
     @Override

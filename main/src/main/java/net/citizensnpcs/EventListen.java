@@ -2,9 +2,13 @@ package net.citizensnpcs;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -68,10 +72,8 @@ import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.util.Vector;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 
 import net.citizensnpcs.Settings.Setting;
@@ -137,7 +139,10 @@ public class EventListen implements Listener {
     private Listener chunkEventListener;
     private Citizens plugin;
     private final SkinUpdateTracker skinUpdateTracker;
-    private final ListMultimap<ChunkCoord, NPC> toRespawn = ArrayListMultimap.create(64, 4);
+    private final Multimap<ChunkCoord, NPC> toRespawn = Multimaps.newListMultimap(
+            new ConcurrentHashMap<>(),
+            () -> Collections.synchronizedList(new ArrayList<>(4))
+    );
 
     EventListen(Citizens plugin) {
         this.plugin = plugin;
@@ -590,7 +595,7 @@ public class EventListen implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onNPCRemove(NPCRemoveEvent event) {
-        toRespawn.values().remove(event.getNPC());
+        toRespawn.entries().removeIf(entry -> entry.getValue() == null || entry.getValue().equals(event.getNPC()));
     }
 
     @EventHandler(ignoreCancelled = true)
