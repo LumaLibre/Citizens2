@@ -552,7 +552,7 @@ public class EventListen implements Listener {
         if (npc.data().has(NPC.Metadata.HOLOGRAM_RENDERER)) {
             HologramRenderer hr = npc.data().get(NPC.Metadata.HOLOGRAM_RENDERER);
             CitizensAPI.getScheduler().runEntityTaskLater(event.getPlayer(),
-                    () -> hr.onSeenByPlayer(npc, event.getPlayer()), 2);
+                    () -> hr.onFirstSeenByPlayer(npc, event.getPlayer()), 2);
         }
     }
 
@@ -608,10 +608,13 @@ public class EventListen implements Listener {
         }
         ClickRedirectTrait crt = npc.getTraitNullable(ClickRedirectTrait.class);
         if (crt != null) {
-            if (npc.data().has(NPC.Metadata.HOLOGRAM_RENDERER)
-                    && !crt.getRedirectToNPC().getOrAddTrait(HologramTrait.class).onSeenByPlayer(event.getPlayer())) {
-                event.setCancelled(true);
-                return;
+            if (npc.data().has(NPC.Metadata.HOLOGRAM_RENDERER)) {
+                HologramRenderer hr = npc.data().get(NPC.Metadata.HOLOGRAM_RENDERER);
+                if (!hr.onSeenByPlayer(npc, event.getPlayer()) || !crt.getRedirectToNPC()
+                        .getOrAddTrait(HologramTrait.class).onSeenByPlayer(event.getPlayer())) {
+                    event.setCancelled(true);
+                    return;
+                }
             }
             npc = crt.getRedirectToNPC();
         }
@@ -727,7 +730,7 @@ public class EventListen implements Listener {
         skinUpdateTracker.updatePlayer(event.getPlayer(), Setting.INITIAL_PLAYER_JOIN_SKIN_PACKET_DELAY.asTicks(),
                 true);
         plugin.getLocationLookup().onJoin(event);
-        plugin.getTeamManager().addPlayer(event.getPlayer());
+        plugin.getScoreboardManager().addPlayer(event.getPlayer());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -736,8 +739,7 @@ public class EventListen implements Listener {
         if (npc == null)
             return;
 
-        boolean leashProtected = npc.isProtected();
-        if (npc.data().get(NPC.Metadata.LEASH_PROTECTED, leashProtected)) {
+        if (npc.data().get(NPC.Metadata.LEASH_PROTECTED, npc.isProtected())) {
             event.setCancelled(true);
         }
     }
@@ -760,7 +762,7 @@ public class EventListen implements Listener {
         }
         skinUpdateTracker.removePlayer(event.getPlayer().getUniqueId());
         plugin.getLocationLookup().onQuit(event);
-        plugin.getTeamManager().removePlayer(event.getPlayer());
+        plugin.getScoreboardManager().removePlayer(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

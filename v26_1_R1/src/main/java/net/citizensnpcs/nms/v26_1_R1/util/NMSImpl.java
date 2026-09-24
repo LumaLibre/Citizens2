@@ -254,6 +254,7 @@ import net.citizensnpcs.trait.versioned.EnderDragonTrait;
 import net.citizensnpcs.trait.versioned.FoxTrait;
 import net.citizensnpcs.trait.versioned.FrogTrait;
 import net.citizensnpcs.trait.versioned.GoatTrait;
+import net.citizensnpcs.trait.versioned.InteractionTrait;
 import net.citizensnpcs.trait.versioned.ItemDisplayTrait;
 import net.citizensnpcs.trait.versioned.LlamaTrait;
 import net.citizensnpcs.trait.versioned.MannequinTrait;
@@ -1065,6 +1066,7 @@ public class NMSImpl implements NMSBridge {
         registerTraitWithCommand(manager, SpellcasterTrait.class);
         registerTraitWithCommand(manager, ShulkerTrait.class);
         registerTraitWithCommand(manager, VexTrait.class);
+        registerTraitWithCommand(manager, InteractionTrait.class);
         registerTraitWithCommand(manager, SnowmanTrait.class);
         registerTraitWithCommand(manager, TextDisplayTrait.class);
         registerTraitWithCommand(manager, TropicalFishTrait.class);
@@ -1338,18 +1340,6 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void openHorseInventory(Tameable horse, Player equipper) {
-        LivingEntity handle = getHandle(horse);
-        ServerPlayer equipperHandle = (ServerPlayer) getHandle(equipper);
-        if (handle == null || equipperHandle == null)
-            return;
-        boolean wasTamed = horse.isTamed();
-        horse.setTamed(true);
-        ((AbstractHorse) handle).openCustomInventoryScreen(equipperHandle);
-        horse.setTamed(wasTamed);
-    }
-
-    @Override
     public void playAnimation(PlayerAnimation animation, Player player, Iterable<Player> to) {
         PlayerAnimationImpl.play(animation, player, to);
     }
@@ -1449,8 +1439,8 @@ public class NMSImpl implements NMSBridge {
                 entry = getTrackedEntityFolia(handle);
                 if (entry == null)
                     return;
-                entry.broadcastRemoved();
                 CitizensEntityTracker newTracker = new CitizensEntityTracker(server.getChunkSource().chunkMap, entry);
+                CitizensEntityTracker.transferSeenBy(entry, newTracker);
                 try {
                     ENTITY_TRACKER_SETTER_FOLIA.invoke(handle, newTracker);
                 } catch (Throwable t) {
@@ -1734,6 +1724,11 @@ public class NMSImpl implements NMSBridge {
         } catch (Throwable t) {
             t.printStackTrace();
         }
+    }
+
+    @Override
+    public void setNoPhysics(org.bukkit.entity.Entity entity, boolean nophysics) {
+        getHandle(entity).noPhysics = nophysics;
     }
 
     @Override
@@ -2423,14 +2418,19 @@ public class NMSImpl implements NMSBridge {
         return null;
     }
 
-    public static SoundEvent getSoundEffect(NPC npc, SoundEvent snd, NPC.Metadata meta) {
+    public static SoundEvent getSoundEffect(NPC npc, SoundEvent defaultSound, NPC.Metadata meta) {
         if (npc == null)
-            return snd;
+            return defaultSound;
         String data = npc.data().get(meta);
         if (data == null)
-            return snd;
-        Reference<SoundEvent> ref = BuiltInRegistries.SOUND_EVENT.get(Identifier.tryParse(data)).orElse(null);
-        return ref == null ? snd : ref.value();
+            return defaultSound;
+        Identifier ident = Identifier.tryParse(data);
+        if (ident == null)
+            return defaultSound;
+        Reference<SoundEvent> ref = BuiltInRegistries.SOUND_EVENT.get(ident).orElse(null);
+        if (ref != null)
+            return ref.value();
+        return data.contains(":") ? SoundEvent.createVariableRangeEvent(ident) : defaultSound;
     }
 
     private static TrackedEntity getTrackedEntityFolia(Entity entity) {
@@ -2471,7 +2471,7 @@ public class NMSImpl implements NMSBridge {
     }
 
     public static boolean moveFish(NPC npc, Mob handle, Vec3 vec3d) {
-        if (npc == null || npc.useMinecraftAI())
+        if (npc.useMinecraftAI())
             return false;
         if (handle.isInWater() && !npc.getNavigator().isNavigating()) {
             handle.moveRelative(handle instanceof Dolphin || handle instanceof Axolotl ? handle.getSpeed()
@@ -2951,7 +2951,7 @@ public class NMSImpl implements NMSBridge {
     private static final MethodHandle CHUNKMAP_UPDATE_PLAYER_STATUS = NMS.getMethodHandle(ChunkMap.class,
             "updatePlayerStatus", true, ServerPlayer.class, boolean.class);
     private static final MethodHandle CLIENT_LOADED_TIMEOUT_TIMER = NMS.getSetter(ServerGamePacketListenerImpl.class,
-            "clientLoadedTimeoutTimer");
+            "clientLoadedTimeoutTimer", false);
     public static final MethodHandle CONNECTION_DISCONNECT_LISTENER = NMS.getSetter(Connection.class,
             "disconnectListener");
     public static final MethodHandle CONNECTION_PACKET_LISTENER = NMS.getSetter(Connection.class, "packetListener");

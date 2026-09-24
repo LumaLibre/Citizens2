@@ -3,9 +3,11 @@ package net.citizensnpcs.trait;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -48,6 +50,9 @@ import net.citizensnpcs.Settings.Setting;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.command.CommandMessages;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
+import net.citizensnpcs.api.expr.CompiledExpression;
+import net.citizensnpcs.api.expr.ExpressionEngine.ExpressionCompileException;
+import net.citizensnpcs.api.expr.ExpressionScope;
 import net.citizensnpcs.api.gui.CitizensInventoryClickEvent;
 import net.citizensnpcs.api.gui.ClickHandler;
 import net.citizensnpcs.api.gui.InputMenus;
@@ -125,7 +130,7 @@ public class ShopTrait extends Trait {
         shops.deleteShop(getDefaultShop());
     }
 
-    @TraitEventHandler(@EventHandler)
+    @TraitEventHandler
     public void onRightClick(NPCRightClickEvent event) {
         if (rightClickShop == null || rightClickShop.isEmpty())
             return;
@@ -203,6 +208,17 @@ public class ShopTrait extends Trait {
 
         public String getName() {
             return name == null ? "" : name;
+        }
+
+        public Optional<NPC> getNPC() {
+            if (name.contains("-")) {
+                try {
+                    UUID uuid = UUID.fromString(name);
+                    return Optional.ofNullable(CitizensAPI.getNPCRegistry().getByUniqueIdGlobal(uuid));
+                } catch (IllegalArgumentException e) {
+                }
+            }
+            return Optional.empty();
         }
 
         public NPCShopPage getOrCreatePage(int page) {
@@ -386,6 +402,10 @@ public class ShopTrait extends Trait {
         @Persist
         private int globalTimesPurchasable;
         @Persist
+        private String isClickableExpression;
+        @Persist
+        private String isVisibleExpression;
+        @Persist
         private boolean maxRepeatsOnShiftClick;
         @Persist
         private int npurchases;
@@ -488,6 +508,16 @@ public class ShopTrait extends Trait {
         public ItemStack getDisplayItem(Player player) {
             if (display == null)
                 return null;
+            if (isVisibleExpression != null) {
+                try {
+                    CompiledExpression expr = CitizensAPI.getExpressionRegistry().compile(isVisibleExpression);
+                    ExpressionScope scope = ExpressionScope.create(player);
+                    if (!expr.evaluateAsBoolean(scope))
+                        return null;
+                } catch (ExpressionCompileException e) {
+                    e.printStackTrace();
+                }
+            }
             ItemStack stack = display.clone();
             ItemMeta meta = stack.getItemMeta();
             if (meta.hasDisplayName()) {
@@ -520,6 +550,16 @@ public class ShopTrait extends Trait {
 
         private void onClick(NPCShop shop, NPCShopStorage storage, Player player, InventoryMultiplexer inventory,
                 boolean shiftClick, boolean secondClick) {
+            if (isClickableExpression != null) {
+                try {
+                    CompiledExpression expr = CitizensAPI.getExpressionRegistry().compile(isClickableExpression);
+                    ExpressionScope scope = ExpressionScope.create(player);
+                    if (!expr.evaluateAsBoolean(scope))
+                        return;
+                } catch (ExpressionCompileException e) {
+                    e.printStackTrace();
+                }
+            }
             // TODO: InventoryMultiplexer could be lifted up to transact in apply(), which would be cleaner.
             // if this is done, it should probably refresh after every transaction application
             if (globalTimesPurchasable > 0 && npurchases >= globalTimesPurchasable)
@@ -596,6 +636,14 @@ public class ShopTrait extends Trait {
             return sb.toString();
         }
 
+        public void resetPurchaseHistory() {
+            purchases.clear();
+        }
+
+        public void resetPurchaseHistory(UUID playerUUID) {
+            purchases.remove(playerUUID);
+        }
+
         public void setDisplayItem(ItemStack itemstack) {
             this.display = itemstack == null ? null : itemstack.clone();
             if (this.display == null)
@@ -663,7 +711,7 @@ public class ShopTrait extends Trait {
             ctx.getSlot(9 * 4 + 7).setItemStack(new ItemStack(Material.APPLE), "Reset purchase history",
                     modified.purchases.size() + " purchases");
             ctx.getSlot(9 * 4 + 7).setClickHandler(e -> {
-                modified.purchases.clear();
+                modified.resetPurchaseHistory();
                 ctx.getSlot(9 * 4 + 7).setDescription(modified.purchases.size() + " purchases");
             });
 
@@ -729,6 +777,23 @@ public class ShopTrait extends Trait {
                     "Sell as many times as possible on shift click\n", "Currently: " + modified.maxRepeatsOnShiftClick);
             ctx.getSlot(9 * 3 + 4).setClickHandler(
                     InputMenus.toggler(res -> modified.maxRepeatsOnShiftClick = res, modified.maxRepeatsOnShiftClick));
+
+            ctx.getSlot(9 * 3 + 2).setItemStack(new ItemStack(Material.BEACON), "Set visibility expression\n",
+                    "Currently: " + modified.isVisibleExpression);
+            ctx.getSlot(9 * 3 + 2).setClickHandler(e -> InputMenus.runChatStringSetter(ctx.getMenu(), e,
+                    "Enter the visibility expression, currently:<br>[[" + modified.isVisibleExpression, s -> {
+                        modified.isVisibleExpression = s;
+                        ctx.getSlot(9 * 3 + 2).setDescription(modified.isVisibleExpression);
+                    }));
+
+            ctx.getSlot(9 * 4 + 2).setItemStack(new ItemStack(Material.ANVIL), "Set clickable expression\n",
+                    "Currently: " + modified.isClickableExpression);
+            ctx.getSlot(9 * 4 + 2).setClickHandler(e -> InputMenus.runChatStringSetter(ctx.getMenu(), e,
+                    "Enter the clickable expression, currently:<br>[[" + modified.isClickableExpression, s -> {
+                        modified.isClickableExpression = s;
+                        ctx.getSlot(9 * 4 + 2).setDescription(modified.isClickableExpression);
+                    }));
+
             int pos = 0;
 
             for (GUI template : NPCShopAction.getGUIs()) {
@@ -856,6 +921,10 @@ public class ShopTrait extends Trait {
 
         public NPCShopItem getItem(int idx) {
             return items.get(idx);
+        }
+
+        public Collection<NPCShopItem> getItems() {
+            return items.values();
         }
 
         public ItemStack getNextPageItem(Player player, int idx) {

@@ -184,6 +184,8 @@ public class Messages {
     public static final String HOLOGRAM_RENDERER_SELECTED = "citizens.commands.npc.hologram.renderer-selected";
     public static final String HOLOGRAM_TEXT_MISSING = "citizens.commands.npc.hologram.text-missing";
     public static final String HOLOGRAM_TEXT_REMOVED = "citizens.commands.npc.hologram.text-removed";
+    public static final String HOLOGRAM_UPDATE_RATE_SET = "citizens.commands.npc.hologram.update-rate-set";
+    public static final String HOLOGRAM_VERTICAL_VIEW_RANGE_SET = "citizens.commands.npc.hologram.vertical-view-range-set";
     public static final String HOLOGRAM_VIEW_RANGE_SET = "citizens.commands.npc.hologram.view-range-set";
     public static final String HOME_TRAIT_DELAY_SET = "citizens.commands.npc.home.delay-set";
     public static final String HOME_TRAIT_DISTANCE_SET = "citizens.commands.npc.home.distance-set";
@@ -246,6 +248,8 @@ public class Messages {
     public static final String LINEAR_WAYPOINT_EDITOR_CYCLE_SET = "citizens.editors.waypoints.linear.cycle-set";
     public static final String LINEAR_WAYPOINT_EDITOR_CYCLE_UNSET = "citizens.editors.waypoints.linear.cycle-unset";
     public static final String LINEAR_WAYPOINT_EDITOR_END = "citizens.editors.waypoints.linear.end";
+    public static final String LINEAR_WAYPOINT_EDITOR_PATHFIND_SET = "citizens.editors.waypoints.linear.pathfind-set";
+    public static final String LINEAR_WAYPOINT_EDITOR_PATHFIND_UNSET = "citizens.editors.waypoints.linear.pathfind-unset";
     public static final String LINEAR_WAYPOINT_EDITOR_RANGE_EXCEEDED = "citizens.editors.waypoints.linear.range-exceeded";
     public static final String LINEAR_WAYPOINT_EDITOR_REMOVED_WAYPOINT = "citizens.editors.waypoints.linear.removed-waypoint";
     public static final String LINEAR_WAYPOINT_EDITOR_WAYPOINTS_CLEARED = "citizens.editors.waypoints.linear.waypoints-cleared";
@@ -292,6 +296,8 @@ public class Messages {
     public static final String MUSHROOM_COW_VARIANT_SET = "citizens.commands.npc.mushroomcow.variant-set";
     public static final String NAMEPLATE_VISIBILITY_SET = "citizens.commands.npc.nameplate.set";
     public static final String NO_NPC_WITH_ID_FOUND = "citizens.commands.npc.spawn.missing-npc-id";
+    public static final String NO_PHYSICS_SET = "citizens.commands.npc.nophysics.set";
+    public static final String NO_PHYSICS_UNSET = "citizens.commands.npc.nophysics.unset";
     public static final String NO_STORED_SPAWN_LOCATION = "citizens.commands.npc.spawn.no-location";
     public static final String NOT_USING_MINECRAFT_AI = "citizens.commands.npc.ai.stopped";
     public static final String NPC_ALREADY_SELECTED = "citizens.commands.npc.select.already-selected";
@@ -400,7 +406,9 @@ public class Messages {
     public static final String SHEARED_STOPPED = "citizens.editors.equipment.sheared-stopped";
     public static final String SHEEP_COLOR_SET = "citizens.commands.npc.sheep.color-set";
     public static final String SHOP_DELETED = "citizens.commands.npc.shop.deleted";
+    public static final String SHOP_ITEM_NOT_FOUND = "citizens.commands.npc.shopitem.item-not-found";
     public static final String SHOP_NOT_FOUND = "citizens.commands.npc.shop.shop-not-found";
+    public static final String SHOP_PAGE_NOT_FOUND = "citizens.commands.npc.shopitem.page-not-found";
     public static final String SHOP_PLAYER_NOT_FOUND = "citizens.commands.npc.shop.show-player-not-found";
     public static final String SHULKER_COLOR_SET = "citizens.commands.npc.shulker.color-set";
     public static final String SHULKER_PEEK_SET = "citizens.commands.npc.shulker.peek-set";

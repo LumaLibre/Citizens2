@@ -72,7 +72,7 @@ public class CitizensNPC extends AbstractNPC {
     private int updateCounter = 0;
 
     public CitizensNPC(UUID uuid, int id, String name, EntityController controller, NPCRegistry registry,
-                       CitizensPlugin plugin) {
+            CitizensPlugin plugin) {
         super(uuid, id, name, registry, plugin);
         setEntityController(controller);
     }
@@ -275,7 +275,7 @@ public class CitizensNPC extends AbstractNPC {
                 hr.updateText(this, getRawName());
             }
         }
-        updateCustomName();
+        updateCustomNameVisibility();
     }
 
     @Override
@@ -392,7 +392,7 @@ public class CitizensNPC extends AbstractNPC {
                         if (type == EntityType.PLAYER || Util.isHorse(type)) {
                             if (SUPPORT_ATTRIBUTES && !hasTrait(AttributeTrait.class)
                                     || !getTrait(AttributeTrait.class).hasAttribute(SpigotUtil.getRegistryValue(
-                                    Registry.ATTRIBUTE, "generic.step_height", "step_height"))) {
+                                            Registry.ATTRIBUTE, "generic.step_height", "step_height"))) {
                                 NMS.setStepHeight(entity, 1);
                             }
                         }
@@ -552,6 +552,10 @@ public class CitizensNPC extends AbstractNPC {
                 return;
 
             Location loc = getEntity().getLocation();
+            if (loc.getY() < -100000) {
+                loc.setY(-100000);
+                getEntity().teleport(loc);
+            }
             if (data().has(NPC.Metadata.ACTIVATION_RANGE)) {
                 int range = data().get(NPC.Metadata.ACTIVATION_RANGE);
                 if (range == -1 || plugin.getLocationLookup().getNearbyPlayers(loc, range).iterator().hasNext()) {
@@ -582,6 +586,9 @@ public class CitizensNPC extends AbstractNPC {
             if (SUPPORT_SILENT && data().has(NPC.Metadata.SILENT)) {
                 getEntity().setSilent(data().get(NPC.Metadata.SILENT, false));
             }
+            if (data().has(NPC.Metadata.NO_PHYSICS)) {
+                NMS.setNoPhysics(getEntity(), data().<Boolean> get(NPC.Metadata.NO_PHYSICS));
+            }
             if (data().has(NPC.Metadata.AGGRESSIVE)) {
                 NMS.setAggressive(getEntity(), data().get(NPC.Metadata.AGGRESSIVE, false));
             }
@@ -597,7 +604,7 @@ public class CitizensNPC extends AbstractNPC {
             if (isLiving) {
                 if (!SUPPORT_ATTRIBUTES || !hasTrait(AttributeTrait.class)
                         || !getTraitNullable(AttributeTrait.class).hasAttribute(SpigotUtil.getRegistryValue(
-                        Registry.ATTRIBUTE, "generic.knockback_resistance", "knockback_resistance"))) {
+                                Registry.ATTRIBUTE, "generic.knockback_resistance", "knockback_resistance"))) {
                     NMS.setKnockbackResistance((LivingEntity) getEntity(), isProtected() ? 1D : 0D);
                 }
                 if (SUPPORT_PICKUP_ITEMS) {

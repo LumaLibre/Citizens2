@@ -173,8 +173,6 @@ public interface NMSBridge {
 
     public InventoryView openAnvilInventory(Player player, Inventory anvil, String title);
 
-    public void openHorseInventory(Tameable horse, Player equipper);
-
     public void playAnimation(PlayerAnimation animation, Player player, Iterable<Player> to);
 
     public Runnable playerTicker(NPC npc, Player entity);
@@ -258,6 +256,8 @@ public interface NMSBridge {
     public void setNavigationType(Entity entity, MinecraftNavigationType type);
 
     public void setNoGravity(Entity entity, boolean nogravity);
+
+    public void setNoPhysics(Entity entity, boolean nophysics);
 
     public void setOpWithoutSaving(Player player, boolean op);
 

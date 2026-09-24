@@ -783,9 +783,8 @@ public class NMS {
         }
         switch (version[0]) {
             case 26:
-                if (version[1] == 1) {
-                    rev = "v26_1_R1";
-                }
+            case 27:
+                rev = "v26_" + version[1] + "_R1";
                 break;
         }
         Class<?> entity = null;
@@ -821,10 +820,6 @@ public class NMS {
 
     public static InventoryView openAnvilInventory(Player player, Inventory inventory, String title) {
         return BRIDGE.openAnvilInventory(player, inventory, title);
-    }
-
-    public static void openHorseScreen(Tameable horse, Player equipper) {
-        BRIDGE.openHorseInventory(horse, equipper);
     }
 
     public static void playAnimation(PlayerAnimation animation, Player player, Iterable<Player> to) {
@@ -978,6 +973,10 @@ public class NMS {
 
     public static void setNoGravity(Entity entity, boolean nogravity) {
         BRIDGE.setNoGravity(entity, nogravity);
+    }
+
+    public static void setNoPhysics(Entity entity, boolean nophysics) {
+        BRIDGE.setNoPhysics(entity, nophysics);
     }
 
     public static void setOpWithoutSaving(Player player, boolean op) {

@@ -2,6 +2,7 @@ package net.citizensnpcs.commands;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.net.URI;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
@@ -19,6 +20,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.bukkit.Art;
 import org.bukkit.Bukkit;
@@ -42,7 +44,9 @@ import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.FishHook;
 import org.bukkit.entity.Horse;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Ocelot;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Rabbit;
@@ -60,6 +64,7 @@ import org.json.simple.parser.JSONParser;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
@@ -92,6 +97,8 @@ import net.citizensnpcs.api.event.NPCTeleportEvent;
 import net.citizensnpcs.api.event.PlayerCloneNPCEvent;
 import net.citizensnpcs.api.event.PlayerCreateNPCEvent;
 import net.citizensnpcs.api.event.SpawnReason;
+import net.citizensnpcs.api.expr.CompiledExpression;
+import net.citizensnpcs.api.expr.ExpressionEngine.ExpressionCompileException;
 import net.citizensnpcs.api.expr.ExpressionScope;
 import net.citizensnpcs.api.gui.InventoryMenu;
 import net.citizensnpcs.api.npc.BlockBreaker;
@@ -175,6 +182,8 @@ import net.citizensnpcs.trait.ScoreboardTrait;
 import net.citizensnpcs.trait.SheepTrait;
 import net.citizensnpcs.trait.ShopTrait;
 import net.citizensnpcs.trait.ShopTrait.NPCShop;
+import net.citizensnpcs.trait.ShopTrait.NPCShopItem;
+import net.citizensnpcs.trait.ShopTrait.NPCShopPage;
 import net.citizensnpcs.trait.SitTrait;
 import net.citizensnpcs.trait.SkinLayers;
 import net.citizensnpcs.trait.SkinLayers.Layer;
@@ -480,8 +489,8 @@ public class NPCCommands {
             usage = "behavior [file.yml]",
             desc = "",
             modifiers = { "behavior" },
-            min = 1,
-            max = 1,
+            min = 2,
+            max = 2,
             permission = "citizens.npc.behavior")
     public void behavior(CommandContext args, CommandSender sender, NPC npc, @Arg(1) String file)
             throws CommandException {
@@ -1188,6 +1197,45 @@ public class NPCCommands {
 
     @Command(
             aliases = { "npc" },
+            usage = "fish [cast_out|reel_in] [location]",
+            desc = "",
+            modifiers = { "fish" },
+            min = 2,
+            max = 3,
+            permission = "citizens.npc.fish")
+    @Requirements(selected = true, ownership = true, types = { EntityType.PLAYER })
+    public void fish(CommandContext args, CommandSender sender, NPC npc,
+            @Arg(value = 1, completions = { "cast_out", "reel_in" }) String command, @Arg(2) Location to)
+            throws CommandException {
+        if (command.equalsIgnoreCase("cast_out")) {
+            Player player = (Player) npc.getEntity();
+            if (player.getItemInHand().getType() != Material.FISHING_ROD)
+                throw new CommandException("NPC must hold a fishing rod");
+            LivingEntity le = (LivingEntity) npc.getEntity();
+            PlayerAnimation.ARM_SWING.play((Player) npc.getEntity());
+            FishHook hook = le.launchProjectile(FishHook.class);
+            hook.setVelocity(to.toVector().subtract(le.getLocation().toVector()).normalize());
+            npc.data().set("fish_uuid", hook.getUniqueId());
+            return;
+        } else if (command.equalsIgnoreCase("reel_in")) {
+            if (!npc.data().has("fish_uuid"))
+                return;
+            UUID uuid = npc.data().get("fish_uuid");
+            Entity entity = Bukkit.getEntity(uuid);
+            if (entity != null) {
+                if (npc.getEntity() instanceof Player) {
+                    PlayerAnimation.ARM_SWING.play((Player) npc.getEntity());
+                }
+                entity.remove();
+            }
+            npc.data().remove("fish_uuid");
+            return;
+        }
+        throw new CommandUsageException();
+    }
+
+    @Command(
+            aliases = { "npc" },
             usage = "flyable (true|false)",
             desc = "",
             modifiers = { "flyable" },
@@ -1381,7 +1429,7 @@ public class NPCCommands {
 
     @Command(
             aliases = { "npc" },
-            usage = "hologram add [text] (--duration [duration]) | insert [line #] [text] | set [line #] [text] | remove [line #] | edit_npc [template | name | line #] | clear | lineheight [height] | viewrange [range] | margintop [line #] [margin] | marginbottom [line #] [margin] | bgcolor [line #] [color]",
+            usage = "hologram add [text] (--duration [duration]) | insert [line #] [text] | set [line #] [text] | remove [line #] | edit_npc [template | name | line #] | clear | updaterate [ticks] | lineheight [height] | verticalviewrange [range] | viewrange [range] | margintop [line #] [margin] | marginbottom [line #] [margin] | bgcolor [line #] [color]",
             desc = "",
             modifiers = { "hologram" },
             min = 1,
@@ -1391,7 +1439,7 @@ public class NPCCommands {
             @Arg(
                     value = 1,
                     completions = { "add", "insert", "set", "edit_npc", "remove", "clear", "lineheight", "viewrange",
-                            "bgcolor", "margintop", "marginbottom" }) String action,
+                            "updaterate", "verticalviewrange", "bgcolor", "margintop", "marginbottom" }) String action,
             @Arg(value = 2, completionsProvider = HologramTrait.TabCompletions.class) String secondCompletion,
             @Flag("duration") Duration duration) throws CommandException {
         if (npc.hasTrait(ClickRedirectTrait.class)) {
@@ -1447,7 +1495,8 @@ public class NPCCommands {
                     throw new CommandException();
                 hr.getTemplateNPC().getOrAddTrait(TextDisplayTrait.class)
                         .setBackgroundColor(SpigotUtil.parseColor(args.getString(3)));
-                Messaging.sendTr(sender, Messages.HOLOGRAM_BACKGROUND_COLOR_SET, args.getString(3));
+                Messaging.sendTr(sender, Messages.HOLOGRAM_BACKGROUND_COLOR_SET,
+                        SpigotUtil.parseColor(args.getString(3)));
             }
         } else if (action.equalsIgnoreCase("edit_npc")) {
             HologramRenderer hr = null;
@@ -1478,6 +1527,18 @@ public class NPCCommands {
 
             trait.setViewRange(args.getInteger(2));
             Messaging.sendTr(sender, Messages.HOLOGRAM_VIEW_RANGE_SET, npc.getName(), args.getInteger(2));
+        } else if (action.equalsIgnoreCase("updaterate")) {
+            if (args.argsLength() == 2 || args.getTicks(2) < 0)
+                throw new CommandUsageException();
+
+            trait.setUpdateRate(args.getTicks(2));
+            Messaging.sendTr(sender, Messages.HOLOGRAM_UPDATE_RATE_SET, npc.getName(), args.getTicks(2));
+        } else if (action.equalsIgnoreCase("verticalviewrange")) {
+            if (args.argsLength() == 2)
+                throw new CommandUsageException();
+
+            trait.setVerticalViewRange(args.getInteger(2));
+            Messaging.sendTr(sender, Messages.HOLOGRAM_VERTICAL_VIEW_RANGE_SET, npc.getName(), args.getInteger(2));
         } else if (action.equalsIgnoreCase("add")) {
             if (args.argsLength() == 2)
                 throw new CommandException(Messages.HOLOGRAM_TEXT_MISSING);
@@ -1829,7 +1890,7 @@ public class NPCCommands {
 
     @Command(
             aliases = { "npc" },
-            usage = "list (page) ((-a) --owner (owner) --type (type) --char (char) --registry (name))",
+            usage = "list (page) (-a[ll]) --owner [owner] --type [type] --registry [name] --tag [tag] --filter [filter expression]",
             desc = "",
             flags = "a",
             modifiers = { "list" },
@@ -1838,8 +1899,8 @@ public class NPCCommands {
             permission = "citizens.npc.list")
     @Requirements
     public void list(CommandContext args, CommandSender sender, NPC npc, @Flag("owner") String owner,
-            @Flag("type") EntityType type, @Flag("page") Integer page, @Flag("registry") String registry)
-            throws CommandException {
+            @Flag("type") EntityType type, @Flag("page") Integer page, @Flag("registry") String registry,
+            @Flag("tag") String tag, @Flag("filter") String filter) throws CommandException {
         NPCRegistry source = registry != null ? CitizensAPI.getNamedNPCRegistry(registry)
                 : CitizensAPI.getNPCRegistry();
         if (source == null)
@@ -1849,6 +1910,29 @@ public class NPCCommands {
         if (args.hasFlag('a')) {
             for (NPC add : source.sorted()) {
                 npcs.add(add);
+            }
+        } else if (filter != null && sender.hasPermission("citizens.admin")) {
+            try {
+                CompiledExpression expr = CitizensAPI.getExpressionRegistry().compile(filter);
+                for (NPC add : source.sorted()) {
+                    ExpressionScope scope = new ExpressionScope();
+                    scope.setNPC(npc);
+                    if (sender instanceof Player) {
+                        scope.setPlayer((Player) sender);
+                    }
+                    if (expr.evaluateAsBoolean(scope)) {
+                        npcs.add(add);
+                    }
+                }
+            } catch (ExpressionCompileException e) {
+                throw new CommandException(e.getMessage());
+            }
+        } else if (tag != null) {
+            for (NPC add : source.sorted()) {
+                if (add.hasTrait(ScoreboardTrait.class)
+                        && add.getOrAddTrait(ScoreboardTrait.class).getTags().contains(tag)) {
+                    npcs.add(add);
+                }
             }
         } else if (owner != null) {
             for (NPC add : source.sorted()) {
@@ -2247,6 +2331,23 @@ public class NPCCommands {
         npc.data().setPersistent(NPC.Metadata.NAMEPLATE_VISIBLE, old);
         npc.scheduleUpdate(NPCUpdate.PACKET);
         Messaging.sendTr(sender, Messages.NAMEPLATE_VISIBILITY_SET, old);
+    }
+
+    @Command(
+            aliases = { "npc" },
+            usage = "nophysics (--explicit true|false)",
+            desc = "",
+            modifiers = { "nophysics" },
+            min = 1,
+            max = 1,
+            permission = "citizens.npc.nophysics")
+    public void nophysics(CommandContext args, CommandSender sender, NPC npc, @Flag("explicit") Boolean explicit) {
+        boolean phys = !npc.data().get(NPC.Metadata.NO_PHYSICS, false);
+        if (explicit != null) {
+            phys = explicit;
+        }
+        npc.data().set(NPC.Metadata.NO_PHYSICS, phys);
+        Messaging.sendTr(sender, phys ? Messages.NO_PHYSICS_SET : Messages.NO_PHYSICS_UNSET, npc.getName());
     }
 
     @Command(aliases = { "npc" }, desc = "", max = 0, permission = "citizens.npc.info")
@@ -3007,7 +3108,7 @@ public class NPCCommands {
 
     @Command(
             aliases = { "npc" },
-            usage = "rotationsettings [linear|immediate] (--link_body) (--head_only) (--max_pitch_per_tick) (--max_yaw_per_tick) (--pitch_range) (--yaw_range)",
+            usage = "rotationsettings [linear|immediate] (--link_body) (--head_only) (--lock_pitch) (--max_pitch_per_tick) (--max_yaw_per_tick) (--pitch_range) (--yaw_range)",
             desc = "",
             modifiers = { "rotationsettings" },
             min = 2,
@@ -3015,8 +3116,8 @@ public class NPCCommands {
             permission = "citizens.npc.rotationsettings")
     public void rotationsettings(CommandContext args, CommandSender sender, NPC npc,
             @Arg(value = 1, completions = { "linear", "immediate" }) String type, @Flag("link_body") Boolean linkBody,
-            @Flag("head_only") Boolean headOnly, @Flag("max_pitch_per_tick") Float maxPitchPerTick,
-            @Flag("max_yaw_per_tick") Float maxYawPerTick,
+            @Flag("lock_pitch") Boolean lockPitch, @Flag("head_only") Boolean headOnly,
+            @Flag("max_pitch_per_tick") Float maxPitchPerTick, @Flag("max_yaw_per_tick") Float maxYawPerTick,
             @Flag(value = "pitch_range", validator = FloatArrayFlagValidator.class) float[] pitchRange,
             @Flag(value = "yaw_range", validator = FloatArrayFlagValidator.class) float[] yawRange)
             throws CommandException {
@@ -3029,6 +3130,9 @@ public class NPCCommands {
         }
         if (headOnly != null) {
             params.headOnly(headOnly);
+        }
+        if (lockPitch != null) {
+            params.lockPitch(lockPitch);
         }
         if (maxPitchPerTick != null) {
             params.maxPitchPerTick(maxPitchPerTick);
@@ -3248,6 +3352,53 @@ public class NPCCommands {
 
     @Command(
             aliases = { "npc" },
+            usage = "shopitem [shop name/id|all] [reset_purchases] [item index|all] (--page [page])",
+            desc = "",
+            modifiers = { "shopitem" },
+            min = 4,
+            max = 5,
+            permission = "citizens.npc.shopitem")
+    @Requirements(selected = false, ownership = true)
+    public void shopitem(CommandContext args, CommandSender sender, NPC npc, @Arg(1) String shopName,
+            @Arg(value = 2, completions = { "reset_purchases" }) String operation, @Arg(3) String index,
+            @Flag("page") Integer page, @Flag("player") UUID playerUUID) throws CommandException {
+        if (!"all".equals(shopName) && shops.getShop(shopName) == null)
+            throw new CommandException(Messages.SHOP_NOT_FOUND, shopName);
+        if (page == null || page < 1) {
+            page = 1;
+        }
+        page -= 1; // 1-index
+
+        for (NPCShop shop : shopName.equals("all")
+                ? Iterables.concat(shops.globalShops.values(), shops.npcShops.values())
+                : ImmutableList.of(shops.getShop(shopName))) {
+            if (!shop.canEdit(npc, sender))
+                throw new NoPermissionsException();
+
+            Stream<NPCShopItem> stream = null;
+            if (index.equals("all")) {
+                stream = shop.getPages().stream().flatMap(p -> p.getItems().stream());
+            } else {
+                NPCShopPage shopPage = shop.getPages().get(page);
+                if (page < shop.getPages().size())
+                    throw new CommandException(Messages.SHOP_PAGE_NOT_FOUND, page + 1, shop.getPages().size());
+                NPCShopItem item = shopPage.getItem(Integer.parseInt(index) + 1);
+                if (item == null)
+                    throw new CommandException(Messages.SHOP_ITEM_NOT_FOUND, index);
+                stream = Stream.of(item);
+            }
+            if ("reset_purchases".equals(operation)) {
+                stream.forEach(i -> i.resetPurchaseHistory());
+            } else if ("reset_player_purchases".equals(operation)) {
+                stream.forEach(i -> i.resetPurchaseHistory(playerUUID));
+            } else {
+                throw new CommandUsageException();
+            }
+        }
+    }
+
+    @Command(
+            aliases = { "npc" },
             usage = "showshop (name)",
             desc = "",
             modifiers = { "showshop" },
@@ -3306,12 +3457,12 @@ public class NPCCommands {
 
     @Command(
             aliases = { "npc" },
-            usage = "skin (-e(xport) -c(lear) -l(atest) -s(kull) -b(edrock)) [name] (or --url [url] --file [file] (-s(lim)) or -t [uuid/name] [data] [signature])",
+            usage = "skin (-e(xport) -c(lear) -l(atest) -s(kull) -b(edrock) -u(rl)) [name] (or --url [url] --file [file] (-s(lim)) or -t [uuid/name] [data] [signature])",
             desc = "",
             modifiers = { "skin" },
             min = 1,
             max = 4,
-            flags = "bectls",
+            flags = "clusbet",
             permission = "citizens.npc.skin")
     public void skin(CommandContext args, CommandSender sender, NPC npc, @Flag("url") String url,
             @Flag("file") String file) throws CommandException {
@@ -3324,6 +3475,22 @@ public class NPCCommands {
         if (args.hasFlag('c')) {
             trait.clearTexture();
             Messaging.sendTr(sender, Messages.SKIN_CLEARED);
+            return;
+        } else if (args.hasFlag('u')) {
+            if (trait.getTexture() == null)
+                throw new CommandException(Messages.SKIN_REQUIRED);
+
+            try {
+                JSONObject data = (JSONObject) new JSONParser()
+                        .parse(new String(BaseEncoding.base64().decode(trait.getTexture())));
+                JSONObject textures = (JSONObject) data.get("textures");
+                JSONObject skinObj = (JSONObject) textures.get("SKIN");
+                URL textureUrl = URI.create(skinObj.get("url").toString().replace("\\", "")).toURL();
+
+                Messaging.send(sender, textureUrl);
+            } catch (Exception e) {
+                throw new CommandException("Couldn't parse texture: " + e.getMessage());
+            }
             return;
         } else if (args.hasFlag('e')) {
             if (trait.getTexture() == null)
@@ -3340,7 +3507,7 @@ public class NPCCommands {
                         .parse(new String(BaseEncoding.base64().decode(trait.getTexture())));
                 JSONObject textures = (JSONObject) data.get("textures");
                 JSONObject skinObj = (JSONObject) textures.get("SKIN");
-                URL textureUrl = new URL(skinObj.get("url").toString().replace("\\", ""));
+                URL textureUrl = URI.create(skinObj.get("url").toString().replace("\\", "")).toURL();
 
                 if (!textureUrl.getHost().equals("textures.minecraft.net"))
                     throw new CommandException(Messages.ERROR_SETTING_SKIN_URL, "Mojang");
@@ -3482,8 +3649,11 @@ public class NPCCommands {
             min = 1,
             max = 2,
             permission = "citizens.npc.slimesize")
-    @Requirements(selected = true, ownership = true, cosmeticTypes = { EntityType.MAGMA_CUBE, EntityType.SLIME })
-    public void slimeSize(CommandContext args, CommandSender sender, NPC npc) {
+    @Requirements(selected = true, ownership = true)
+    public void slimeSize(CommandContext args, CommandSender sender, NPC npc) throws RequirementMissingException {
+        EntityType type = npc.getCosmeticEntityType();
+        if (type != EntityType.MAGMA_CUBE && type != EntityType.SLIME && !type.name().equals("SULFUR_CUBE"))
+            throw new RequirementMissingException(Messaging.tr(CommandMessages.REQUIREMENTS_INVALID_MOB_TYPE));
         SlimeSize trait = npc.getOrAddTrait(SlimeSize.class);
         if (args.argsLength() <= 1) {
             trait.describe(sender);
@@ -3956,6 +4126,19 @@ public class NPCCommands {
             Messaging.sendTr(sender, Messages.TOGGLED_USING_HELD_ITEM,
                     Boolean.toString(npc.data().get(NPC.Metadata.USING_HELD_ITEM)));
         }
+    }
+
+    @Command(
+            aliases = { "npc" },
+            usage = "velocity [x] [y] [z]",
+            desc = "",
+            modifiers = { "velocity", "vel" },
+            min = 4,
+            max = 4,
+            permission = "citizens.npc.velocity")
+    public void velocity(CommandContext args, CommandSender sender, NPC npc, @Arg(1) double x, @Arg(2) double y,
+            @Arg(3) double z) {
+        npc.getEntity().setVelocity(new Vector(x, y, z));
     }
 
     @Command(

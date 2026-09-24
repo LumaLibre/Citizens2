@@ -136,7 +136,7 @@ public class Settings {
                 "The default renderer for holograms, must be one of the following:<br>interaction - requires 1.19+, matches nametags more closely than display<br>display - allows for different colored backgrounds<br>display_vehicle - mounts the display on the NPC<br>areaeffectcloud - the safest option<br>armorstand - the second safest option, has a hitbox clientside<br>armorstand_vehicle - mounts the armorstand on the NPC, only useful for nameplates",
                 "npc.hologram.default-renderer", "display"),
         DEFAULT_HOLOGRAM_RENDERER_SETTINGS("npc.hologram.default-renderer-settings", ImmutableMap.of("seeThrough",
-                false, "shadowed", true, "billboard", "CENTER", "interpolationDelay", 0, "interpolationDuration", 0)) {
+                false, "shadowed", false, "billboard", "CENTER", "interpolationDelay", 0, "interpolationDuration", 0)) {
             @Override
             public void loadFromKey(YamlConfiguration config) {
                 value = config.get(path);
@@ -148,6 +148,10 @@ public class Settings {
                 setComments(config);
             }
         },
+        DEFAULT_HOLOGRAM_VERTICAL_VIEW_RANGE("Default vertical view range in blocks (defaults to unlimited)",
+                "npc.hologram.default-vertical-view-range", -1),
+        DEFAULT_HOLOGRAM_VIEW_RANGE("Default horizontal view range in blocks (defaults to tracking range)",
+                "npc.hologram.default-view-range", -1),
         DEFAULT_LOOK_CLOSE("Enable look close by default", "npc.default.look-close.enabled", false),
         DEFAULT_LOOK_CLOSE_RANGE("Default look close range in blocks", "npc.default.look-close.range", 10),
         DEFAULT_NPC_HOLOGRAM_LINE_HEIGHT("Default distance between hologram lines", "npc.hologram.default-line-height",
