@@ -47,6 +47,7 @@ import net.citizensnpcs.api.event.NPCEvent;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCRegistry;
 import net.citizensnpcs.api.persistence.Persist;
+import net.citizensnpcs.api.persistence.Persistable;
 import net.citizensnpcs.api.persistence.PersistenceLoader;
 import net.citizensnpcs.api.trait.Trait;
 import net.citizensnpcs.api.trait.TraitName;
@@ -167,7 +168,7 @@ public class HologramTrait extends Trait {
 
     private HologramRenderer createRenderer(String setting) {
         if (!SUPPORTS_DISPLAY) {
-            setting = SpigotUtil.getVersion()[1] <= 8 ? "armorstand" : "areaeffectcloud";
+            setting = SpigotUtil.getVersion()[0] <= 8 ? "armorstand" : "areaeffectcloud";
         }
         if (defaultRenderer != null)
             return defaultRenderer.copy();
@@ -697,7 +698,7 @@ public class HologramTrait extends Trait {
          * @param text
          *            the new hologram text
          */
-        void updateText(NPC parent, String text);;
+        void updateText(NPC parent, String text);
     }
 
     public static class HologramRendererCreateEvent extends NPCEvent {
@@ -918,8 +919,16 @@ public class HologramTrait extends Trait {
 
         @Override
         public boolean onSeenByPlayer(NPC npc, Player player) {
-            if (verticalViewRange > 0) {
-                return Math.abs(npc.getStoredLocation().getY() - player.getLocation().getY()) <= verticalViewRange;
+            if (verticalViewRange > 0 || viewRange > 0) {
+                Location npcLoc = npc.getEntity().getLocation();
+                Location playerLoc = player.getLocation();
+                if (viewRange > 0) {
+                    double dx = npcLoc.getX() - playerLoc.getX();
+                    double dz = npcLoc.getZ() - playerLoc.getZ();
+                    if (dx * dx + dz * dz > viewRange * viewRange)
+                        return false;
+                }
+                return verticalViewRange <= 0 || Math.abs(npcLoc.getY() - playerLoc.getY()) <= verticalViewRange;
             }
             return true;
         }
@@ -1007,10 +1016,8 @@ public class HologramTrait extends Trait {
         private static final Set<String> LINE_ARGS = ImmutableSet.of("set", "remove", "margintop", "marginbottom");
     }
 
-    public static class TextDisplayRenderer extends SingleEntityHologramRenderer {
-        @Persist(value = "", reify = true)
+    public static class TextDisplayRenderer extends SingleEntityHologramRenderer implements Persistable {
         DisplayTrait dt = new DisplayTrait();
-        @Persist(value = "", reify = true)
         TextDisplayTrait tdt = new TextDisplayTrait();
 
         public TextDisplayRenderer() {
@@ -1040,17 +1047,20 @@ public class HologramTrait extends Trait {
 
         @Override
         public void destroy() {
-            if (hologram != null) {
-                dt = hologram.getOrAddTrait(DisplayTrait.class).clone();
-                tdt = hologram.getOrAddTrait(TextDisplayTrait.class).clone();
-            }
+            sync();
             super.destroy();
+        }
+
+        @Override
+        public void load(DataKey root) {
+            dt = PersistenceLoader.load(DisplayTrait.class, root);
+            tdt = PersistenceLoader.load(TextDisplayTrait.class, root);
         }
 
         @Override
         public void render0(NPC base, Vector3d offset) {
             TextDisplay disp = (TextDisplay) hologram.getEntity();
-            if (SpigotUtil.getVersion()[1] >= 21 && base.getEntity() instanceof LivingEntity) {
+            if (SpigotUtil.getVersion()[0] >= 21 && base.getEntity() instanceof LivingEntity) {
                 AttributeInstance inst = ((LivingEntity) base.getEntity())
                         .getAttribute(SpigotUtil.getRegistryValue(Registry.ATTRIBUTE, "generic.scale", "scale"));
                 Float scale = inst == null ? null : (float) inst.getValue();
@@ -1064,6 +1074,20 @@ public class HologramTrait extends Trait {
                     base.getEntity().getLocation().clone().add(offset.x,
                             offset.y + NMS.getBoundingBoxHeight(base.getEntity()) + 0.2f, offset.z),
                     TeleportCause.PLUGIN);
+        }
+
+        @Override
+        public void save(DataKey root) {
+            sync();
+            PersistenceLoader.save(dt, root);
+            PersistenceLoader.save(tdt, root);
+        }
+
+        private void sync() {
+            if (hologram != null) {
+                dt = hologram.getOrAddTrait(DisplayTrait.class).clone();
+                tdt = hologram.getOrAddTrait(TextDisplayTrait.class).clone();
+            }
         }
 
         @Override
@@ -1096,7 +1120,7 @@ public class HologramTrait extends Trait {
         @Override
         public void render0(NPC npc, Vector3d offset) {
             TextDisplay disp = (TextDisplay) hologram.getEntity();
-            if (SpigotUtil.getVersion()[1] >= 21 && npc.getEntity() instanceof LivingEntity) {
+            if (SpigotUtil.getVersion()[0] >= 21 && npc.getEntity() instanceof LivingEntity) {
                 AttributeInstance inst = ((LivingEntity) npc.getEntity())
                         .getAttribute(SpigotUtil.getRegistryValue(Registry.ATTRIBUTE, "generic.scale", "scale"));
                 Float scale = inst == null ? null : (float) inst.getValue();

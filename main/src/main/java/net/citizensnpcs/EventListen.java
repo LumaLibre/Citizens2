@@ -108,6 +108,7 @@ import net.citizensnpcs.api.event.NPCVehicleDamageEvent;
 import net.citizensnpcs.api.event.PlayerCreateNPCEvent;
 import net.citizensnpcs.api.event.SpawnReason;
 import net.citizensnpcs.api.npc.NPC;
+import net.citizensnpcs.api.npc.NPC.NPCUpdate;
 import net.citizensnpcs.api.trait.trait.Owner;
 import net.citizensnpcs.api.trait.trait.PlayerFilter;
 import net.citizensnpcs.api.util.Messaging;
@@ -292,7 +293,7 @@ public class EventListen implements Listener {
                 new double[] { (event.getChunk().getX() << 4) - 0.5, 0, (event.getChunk().getZ() << 4) - 0.5 },
                 new double[] { (event.getChunk().getX() + 1 << 4) + 0.5, 256,
                         (event.getChunk().getZ() + 1 << 4) + 0.5 }));
-        if (SpigotUtil.getVersion()[1] < 21) {
+        if (SpigotUtil.getVersion()[0] < 21) {
             for (Entity entity : event.getChunk().getEntities()) {
                 NPC npc = plugin.getNPCRegistry().getNPC(entity);
                 // XXX npc#isSpawned() checks valid status which is now inconsistent on chunk unload
@@ -602,6 +603,9 @@ public class EventListen implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onNPCSeenByPlayer(NPCSeenByPlayerEvent event) {
         NPC npc = event.getNPC();
+        if (!event.isFirstSeen() && !npc.isUpdating(NPCUpdate.PACKET))
+            return;
+
         PlayerFilter pf = npc.getTraitNullable(PlayerFilter.class);
         if (pf != null) {
             event.setCancelled(pf.onSeenByPlayer(event.getPlayer()));

@@ -46,7 +46,6 @@ public class SlimeController extends MobEntityController {
 
     public static class EntitySlimeNPC extends Slime implements NPCHolder {
         private final CitizensNPC npc;
-
         private MoveControl oldMoveController;
 
         public EntitySlimeNPC(EntityType<? extends Slime> types, Level level) {
@@ -105,7 +104,7 @@ public class SlimeController extends MobEntityController {
 
         @Override
         public CraftEntity getBukkitEntity() {
-            if (npc != null && !(super.getBukkitEntity() instanceof NPCHolder)) {
+            if (npc != null && NMSImpl.getBukkitEntity(this) == null) {
                 NMSImpl.setBukkitEntity(this, new SlimeNPC(this));
             }
             return super.getBukkitEntity();
